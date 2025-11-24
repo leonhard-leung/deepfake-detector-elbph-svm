@@ -145,12 +145,12 @@ def load_images(input_dir = '../data/raw'):
 
     return images
 
-def save_as_numpy_images(images, output_dir = '../data/cleaned'):
+def save_as_numpy_images(images, output_dir = '../data/processed'):
     """
     Save a list of images as .npy files for later processing.
 
     :param images: List of preprocessed images
-    :param output_dir: Directory to save .npy files, default is '../data/cleaned'
+    :param output_dir: Directory to save .npy files, default is '../data/processed'
     :return: None
     """
     output_path = Path(output_dir)
@@ -160,11 +160,11 @@ def save_as_numpy_images(images, output_dir = '../data/cleaned'):
         filename = output_path / f'img_{idx}.npy'
         np.save(str(filename), img)
 
-def load_numpy_images(input_dir = '../data/cleaned'):
+def load_numpy_images(input_dir = '../data/processed'):
     """
     Load preprocessed images saved as .npy arrays from a directory.
 
-    :param input_dir: Directory containing .npy files, default is '../data/cleaned'
+    :param input_dir: Directory containing .npy files, default is '../data/processed'
     :return: List of loaded images in numpy arrays
     """
     input_path = Path(input_dir)
