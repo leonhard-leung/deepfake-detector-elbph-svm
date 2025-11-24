@@ -6,8 +6,7 @@ This module provides reusable functions for image preprocessing, including:
 - Image resizing
 - Color space conversion (BGR to YCrCb)
 - Image filters (Gaussian Filter)
-- Batch Preprocessing pipelines
-- Detecting and caching facial landmarks
+- Batch Preprocessing pipelines that return preprocessed images along with face landmarks
 - File handling for loading and saving images and landmarks as NumPy arrays
 
 Intended to be **imported** by scripts such as `prepare_daya.py` for preprocessing
@@ -110,22 +109,37 @@ def _to_y_cr_cb(img):
 # =============== preprocessing pipeline ===============
 def clean_images(images):
     """
-    Apply face alignment, resizing, color conversion, and image filtering to a list
-    of images.
+    Apply a full preprocessing pipeline to a list of images, including:
+    1. Face alignment
+    2. Resizing
+    3. Color conversion (BGR -> YCrCb)
+    4. Gaussian filtering
+
+    Also detects and returns facial landmarks corresponding to each image after face alignment.
 
     :param images: List of input images in BGR format
-    :return: List of preprocessed images in YCrCb color space, resized, aligned, and filtered
+    :return:
+        - cleaned: List of preprocessed images in YCrCb color space, resized, aligned, and filtered
+        - landmarks: List of dictionaries containing facial keypoints for each image
     """
     cleaned = []
+    landmarks = []
 
     for img in images:
         img_aligned = _align_face(img)
+
+        result = mtcnn_detector.detect_faces(img_aligned)
+        if result:
+            landmarks.append(result[0]['keypoints'])
+        else:
+            landmarks.append({})
+
         img_resized = _resize(img_aligned)
         img_color_space = _to_y_cr_cb(img_resized)
         img_filtered = _apply_filters(img_color_space)
         cleaned.append(img_filtered)
 
-    return cleaned
+    return cleaned, landmarks
 
 # =============== file handling ===============
 def load_images(input_dir='../data/raw'):
@@ -176,24 +190,19 @@ def load_numpy_images(input_dir='../data/processed'):
 
     return arrays
 
-def save_landmarks(images, output_dir='../data/processed'):
+def save_landmark_dicts(landmarks_list, output_dir='../data/processed'):
     """
-    Detect face landmarks for a list of images using MTCNN and save them as .npy files.
+    Save a list of facial landmark dictionaries as .npy files.
 
-    :param images: List of images as NumPy arrays (H, W, C)
-    :param output_dir: Directory to save .npy files, default is '../data/processed'
+    :param landmarks_list: List of dictionaries containing facial keypoints
+    :param output_dir: Directory to save landmarks, default is '../data/processed'
     :return: None
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    for idx, img in enumerate(images):
-        result = mtcnn_detector.detect_faces(img)
-        if result:
-            landmarks = result[0]['keypoints']
-        else:
-            landmarks = {}
-        np.save(output_path / f'landmarks_{idx}.npy', landmarks)
+    for idx, lm in enumerate(landmarks_list):
+        np.save(output_path / f'landmarks_{idx}.npy', lm)
 
 def load_landmarks(input_dir='../data/preprocessed'):
     """
