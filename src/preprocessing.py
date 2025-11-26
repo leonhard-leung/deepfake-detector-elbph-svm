@@ -127,14 +127,14 @@ def clean_images(images):
 
     for img in images:
         img_aligned = _align_face(img)
+        img_resized = _resize(img_aligned)
 
-        result = mtcnn_detector.detect_faces(img_aligned)
+        result = mtcnn_detector.detect_faces(img_resized)
         if result:
             landmarks.append(result[0]['keypoints'])
         else:
             landmarks.append({})
 
-        img_resized = _resize(img_aligned)
         img_color_space = _to_y_cr_cb(img_resized)
         img_filtered = _apply_filters(img_color_space)
         cleaned.append(img_filtered)
