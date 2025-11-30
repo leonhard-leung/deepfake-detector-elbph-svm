@@ -55,6 +55,7 @@ def _train(model, X, y):
     cm = confusion_matrix(y, y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Real', 'Fake'])
     disp.plot(cmap=plt.cm.Blues)
+    plt.title("Confusion Matrix (Training)")
     plt.show()
 
 def _validate(model, X, y):
@@ -81,6 +82,7 @@ def _validate(model, X, y):
     cm = confusion_matrix(y, y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Real', 'Fake'])
     disp.plot(cmap=plt.cm.Blues)
+    plt.title("Confusion Matrix (Training)")
     plt.show()
 
 def _evaluate(model, X, y):
@@ -107,6 +109,7 @@ def _evaluate(model, X, y):
     cm = confusion_matrix(y, y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Real', 'Fake'])
     disp.plot(cmap=plt.cm.Blues)
+    plt.title("Confusion Matrix (Training)")
     plt.show()
 
 def _save_model(model, output_dir='../model'):
