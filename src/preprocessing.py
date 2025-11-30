@@ -190,7 +190,7 @@ def load_numpy_images(input_dir='../data/processed'):
     arrays = []
 
     for file in tqdm(files, desc=f"Loading numpy images from {input_dir}"):
-        arrays.append(np.load(str(file)))
+        arrays.append(np.load(str(file), allow_pickle=True))
     return arrays
 
 def save_landmark_dicts(landmarks_list, output_dir='../data/processed'):
