@@ -4,7 +4,7 @@ preprocessing.py
 This module provides reusable functions for image preprocessing, including:
 - Face alignment using MTCNN
 - Image resizing
-- Color space conversion (BGR to YCrCb)
+- Color space conversion (BGR to Y (from YCrCb))
 - Image filters (Gaussian Filter)
 - Batch Preprocessing pipelines that return preprocessed images along with face landmarks
 - File handling for loading and saving images and landmarks as NumPy arrays
@@ -88,7 +88,7 @@ def _align_face(img, padding=0.4):
     cropped = rotated[y_new:y_new + h_new, x_new:x_new + w_new]
     return cropped
 
-def _apply_filters(img):
+def _gaussian_filter(img):
     """
     Applies mild Gaussian blur to reduce noise and enhance textures.
 
@@ -97,29 +97,32 @@ def _apply_filters(img):
     """
     return cv.GaussianBlur(img, (3,3), 1)
 
-def _to_y_cr_cb(img):
+def _to_luminance_channel(img):
     """
-    Convert an image from BGR to YCrCb color space.
+    Convert an image from BGR to luminance channel from YCrCb.
 
     :param img: Input image in BGR format
-    :return: Image in YCrCb color space
+    :return: Image in luminance (Y) color space
     """
-    return cv.cvtColor(img, cv.COLOR_BGR2YCrCb)
+    y_cr_cb = cv.cvtColor(img, cv.COLOR_BGR2YCrCb)
+    y = y_cr_cb[:, :, 0]
+
+    return y
 
 # =============== preprocessing pipeline ===============
-def clean_images(images):
+def preprocess_images(images):
     """
     Apply a full preprocessing pipeline to a list of images, including:
     1. Face alignment
     2. Resizing
-    3. Color conversion (BGR -> YCrCb)
+    3. Color conversion (BGR -> Y (luminance channel))
     4. Gaussian filtering
 
     Also detects and returns facial landmarks corresponding to each image after face alignment.
 
     :param images: List of input images in BGR format
     :return:
-        - cleaned: List of preprocessed images in YCrCb color space, resized, aligned, and filtered
+        - cleaned: List of preprocessed images in Y color space (CrCb not included), resized, aligned, and filtered
         - landmarks: List of dictionaries containing facial keypoints for each image
     """
     cleaned = []
@@ -135,8 +138,8 @@ def clean_images(images):
         else:
             landmarks.append({})
 
-        img_color_space = _to_y_cr_cb(img_resized)
-        img_filtered = _apply_filters(img_color_space)
+        img_color_space = _to_luminance_channel(img_resized)
+        img_filtered = _gaussian_filter(img_color_space)
         cleaned.append(img_filtered)
 
     return cleaned, landmarks
