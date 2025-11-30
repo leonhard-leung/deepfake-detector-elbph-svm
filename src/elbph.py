@@ -15,6 +15,7 @@ such as SVM-based deepfake classification.
 
 import numpy as np
 from skimage.feature import local_binary_pattern
+from tqdm import tqdm
 
 def _multi_scale_lbp(img, scales=None):
     """
@@ -123,7 +124,7 @@ def extract_lbp_features(images, scales=None, num_blocks=(8,8), landmarks_list=N
     """
     all_features = []
 
-    for img, lm in zip(images, landmarks_list):
+    for img, lm in tqdm(zip(images, landmarks_list), total=len(images), desc="Extracting eLBPH features"):
         # compute weights
         weights = _create_block_weights(lm, img.shape, num_blocks)
 
@@ -147,7 +148,6 @@ def extract_lbp_features(images, scales=None, num_blocks=(8,8), landmarks_list=N
         all_features.append(normalized_vector)
 
     return np.array(all_features)
-
 
 def extract_single_lbp_features(img, landmarks, scales=None, num_blocks=(8, 8), pca_model=None):
     """
