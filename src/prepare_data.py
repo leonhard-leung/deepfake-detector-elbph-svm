@@ -19,14 +19,14 @@ Notes:
     - Do not run during training; train.py uses the processed images which this script outputs.
 """
 
-from preprocessing import load_images, clean_images, save_as_numpy_images, save_landmark_dicts
+from preprocessing import load_images, preprocess_images, save_as_numpy_images, save_landmark_dicts
 
 def main():
     raw_images_fake = load_images('../data/raw/fake')
     raw_images_real = load_images('../data/raw/real')
 
-    processed_images_fake, processed_landmarks_fake = clean_images(raw_images_fake)
-    processed_images_real, processed_landmarks_real = clean_images(raw_images_real)
+    processed_images_fake, processed_landmarks_fake = preprocess_images(raw_images_fake)
+    processed_images_real, processed_landmarks_real = preprocess_images(raw_images_real)
 
     save_as_numpy_images(processed_images_fake, '../data/processed/fake')
     save_as_numpy_images(processed_images_real, '../data/processed/real')
