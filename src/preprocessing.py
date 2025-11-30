@@ -2,12 +2,14 @@
 preprocessing.py
 
 This module provides reusable functions for image preprocessing, including:
-- Face alignment using MTCNN
-- Image resizing
-- Color space conversion (BGR to Y (from YCrCb))
-- Image filters (Gaussian Filter)
+- Face detection and alignment using facenet-pytorch MTCNN (GPU-supported)
+- Image resizing to a fixed shape
+- Conversion from BGR to Y (luminance) channel from YCrCb color space
+- Gaussian filtering to reduce noise and enhance textures.
 - Batch Preprocessing pipelines that return preprocessed images along with face landmarks
 - File handling for loading and saving images and landmarks as NumPy arrays
+
+Parallel processing is used for faster execution on large datasets.
 
 Intended to be **imported** by scripts such as `prepare_daya.py` for preprocessing
 datasets before feature extraction and ML modeling.
@@ -16,18 +18,23 @@ Usage:
     import preprocessing
 
     images = preprocessing.load_images('../data/raw')
-    processed_images = preprocessing.clean_images(images)
+    processed_images = preprocessing.preprocess_images(images)
 """
 
+import torch
 import numpy as np
 import cv2 as cv
-from mtcnn import MTCNN
+from facenet_pytorch import MTCNN
 from pathlib import Path
 from tqdm import tqdm
+from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
+
+# =============== setup GPU MTCNN ===============
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+mtcnn_detector = MTCNN(keep_all=False, device=device) # global instantiation of mtcnn to avoid multiple instantiations
 
 # =============== preprocessing techniques ===============
-mtcnn_detector = MTCNN() # global instantiation of mtcnn to avoid multiple instantiations
-
 def _resize(img, resize_shape=(256, 256)):
     """
     Resizes an image to the specified dimensions using appropriate interpolation.
@@ -47,7 +54,7 @@ def _resize(img, resize_shape=(256, 256)):
 
     return cv.resize(img, resize_shape, interpolation=interpolation)
 
-def _align_face(img, padding=0.4):
+def _crop_face(img, padding=0.4):
     """
     Aligns the face in an image using MTCNN by rotating the eyes to be horizontal
     and cropping the face with optional padding.
@@ -56,38 +63,34 @@ def _align_face(img, padding=0.4):
     :param padding: Fraction of face width/height to add as padding around the crop, default is 0.4
     :return: Cropped and aligned face image
     """
-    result = mtcnn_detector.detect_faces(img)
+    img_pil = Image.fromarray(cv.cvtColor(img, cv.COLOR_BGR2RGB))
+    boxes, probs, landmarks = mtcnn_detector.detect(img_pil, landmarks=True)
 
-    if len(result) == 0:
-        return img
+    if boxes is None:
+        return img, {}
 
-    face = result[0]['box']
-    keypoints = result[0]['keypoints']
-    left_eye = keypoints['left_eye']
-    right_eye = keypoints['right_eye']
+    box = boxes[0].astype(int)
+    x1, y1, x2, y2 = box
 
-    dy = right_eye[1] - left_eye[1]
-    dx = right_eye[0] - left_eye[0]
-    angle = np.degrees(np.arctan2(dy, dx))
+    w, h = x2 - x1, y2 - y1
+    x1 = max(int(x1 - w * padding), 0)
+    y1 = max(int(y1 - h * padding), 0)
+    x2 = min(int(x2 + w * padding), img.shape[1])
+    y2 = min(int(y2 + h * padding), img.shape[0])
 
-    eyes_center = (
-        int((left_eye[0] + right_eye[0]) / 2),
-        int((left_eye[1] + right_eye[1]) / 2)
-    )
+    cropped = img[y1:y2, x1:x2]
 
-    M = cv.getRotationMatrix2D(eyes_center, angle, 1.0)
-    rotated = cv.warpAffine(img, M, (img.shape[1], img.shape[0]))
+    landmark_dict = {}
+    if landmarks is not None:
+        landmark_dict = {
+            'left_eye': tuple(landmarks[0][0]),
+            'right_eye': tuple(landmarks[0][1]),
+            'nose': tuple(landmarks[0][2]),
+            'mouth_left': tuple(landmarks[0][3]),
+            'mouth_right': tuple(landmarks[0][4])
+        }
 
-    x, y, w, h = face
-    padding_w = int(padding * w)
-    padding_h = int(padding * h)
-    x_new = max(x - padding_w, 0)
-    y_new = max(y - padding_h, 0)
-    w_new = max(w + 2 * padding_w, img.shape[1] - x_new)
-    h_new = max(h + 2 * padding_h, img.shape[0] - y_new)
-
-    cropped = rotated[y_new:y_new + h_new, x_new:x_new + w_new]
-    return cropped
+    return cropped, landmark_dict
 
 def _gaussian_filter(img):
     """
@@ -113,37 +116,32 @@ def _to_luminance_channel(img):
 # =============== preprocessing pipeline ===============
 def preprocess_images(images):
     """
-    Apply a full preprocessing pipeline to a list of images, including:
-    1. Face alignment
-    2. Resizing
-    3. Color conversion (BGR -> Y (luminance channel))
-    4. Gaussian filtering
-
-    Also detects and returns facial landmarks corresponding to each image after face alignment.
+    Apply a full preprocessing pipeline to a list of images using facenet-pytorch MTCNN
+    1. Face detection
+    2. Resizing to a fixed shape (default: 256x256)
+    3. Conversion from BGR to Y channel (luminance) of YCrCb color space.
+    4. Mild Gaussian filtering to reduce noise and enhance textures.
+    5. Parallel processing using ThreadPoolExecutor for faster execution on large datasets.
 
     :param images: List of input images in BGR format
     :return:
-        - cleaned: List of preprocessed images in Y color space (CrCb not included), resized, aligned, and filtered
-        - landmarks: List of dictionaries containing facial keypoints for each image
+        - cleaned: List of preprocessed images in Y (luminance) channel, resized, cropped, and filtered
+        - landmarks_list: List of dictionaries containing facial keypoints for each image; empty dict if no face detected
     """
-    cleaned = []
-    landmarks = []
+    cleaned, landmarks_list = [], []
 
-    for img in tqdm(images, desc="Preprocessing images"):
-        img_aligned = _align_face(img)
-        img_resized = _resize(img_aligned)
+    def process(img):
+        cropped, landmarks_dict = _crop_face(img, padding=0.4)
+        resized = _resize(cropped)
+        y_channel = _to_luminance_channel(resized)
+        filtered = _gaussian_filter(y_channel)
+        return filtered, landmarks_dict
 
-        result = mtcnn_detector.detect_faces(img_resized)
-        if result:
-            landmarks.append(result[0]['keypoints'])
-        else:
-            landmarks.append({})
-
-        img_color_space = _to_luminance_channel(img_resized)
-        img_filtered = _gaussian_filter(img_color_space)
-        cleaned.append(img_filtered)
-
-    return cleaned, landmarks
+    with ThreadPoolExecutor() as executor:
+        for img_filtered, lm in tqdm(executor.map(process, images), total=len(images)):
+            cleaned.append(img_filtered)
+            landmarks_list.append(lm)
+    return cleaned, landmarks_list
 
 # =============== file handling ===============
 def load_images(input_dir='../data/raw'):
@@ -161,7 +159,6 @@ def load_images(input_dir='../data/raw'):
             img = cv.imread(str(file))
             if img is not None:
                 images.append(img)
-
     return images
 
 def save_as_numpy_images(images, output_dir='../data/processed'):
@@ -174,7 +171,6 @@ def save_as_numpy_images(images, output_dir='../data/processed'):
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-
     for idx, img in enumerate(images):
         filename = output_path / f'img_{idx}.npy'
         np.save(str(filename), img)
@@ -188,10 +184,8 @@ def load_numpy_images(input_dir='../data/processed'):
     """
     input_path = Path(input_dir)
     arrays = []
-
     for file in input_path.glob('*.npy'):
         arrays.append(np.load(str(file)))
-
     return arrays
 
 def save_landmark_dicts(landmarks_list, output_dir='../data/processed'):
@@ -204,11 +198,10 @@ def save_landmark_dicts(landmarks_list, output_dir='../data/processed'):
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-
     for idx, lm in enumerate(landmarks_list):
         np.save(output_path / f'landmarks_{idx}.npy', lm)
 
-def load_landmarks(input_dir='../data/preprocessed'):
+def load_landmarks(input_dir='../data/processed'):
     """
     Load precomputed face landmarks saved as .npy files.
 
