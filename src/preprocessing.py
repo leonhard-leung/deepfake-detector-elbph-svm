@@ -138,10 +138,10 @@ def preprocess_images(images):
         return filtered, landmarks_dict
 
     with ThreadPoolExecutor() as executor:
-        for img_filtered, lm in tqdm(executor.map(process, images), total=len(images)):
-            cleaned.append(img_filtered)
-            landmarks_list.append(lm)
-    return cleaned, landmarks_list
+        results = list(tqdm(executor.map(process, images), total=len(images), desc="Preprocessing images"))
+
+    cleaned, landmarks_list = zip(*results)
+    return list(cleaned), list(landmarks_list)
 
 # =============== file handling ===============
 def load_images(input_dir='../data/raw'):
@@ -154,11 +154,14 @@ def load_images(input_dir='../data/raw'):
     input_path = Path(input_dir)
     images = []
 
-    for ext in ('*.jpg', '*.png', '*.jpeg'):
-        for file in input_path.glob(ext):
-            img = cv.imread(str(file))
-            if img is not None:
-                images.append(img)
+    files = []
+    for ext in ("*.jpg", "*.png", "*.jpeg"):
+        files.extend(list(input_path.glob(ext)))
+
+    for file in tqdm(files, desc=f"Loading images from {input_dir}"):
+        img = cv.imread(str(file))
+        if img is not None:
+            images.append(img)
     return images
 
 def save_as_numpy_images(images, output_dir='../data/processed'):
@@ -171,7 +174,7 @@ def save_as_numpy_images(images, output_dir='../data/processed'):
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    for idx, img in enumerate(images):
+    for idx, img in enumerate(tqdm(images, desc=f"Saving images to {output_dir}")):
         filename = output_path / f'img_{idx}.npy'
         np.save(str(filename), img)
 
@@ -183,8 +186,10 @@ def load_numpy_images(input_dir='../data/processed'):
     :return: List of loaded images in numpy arrays
     """
     input_path = Path(input_dir)
+    files = list(input_path.glob("*.npy"))
     arrays = []
-    for file in input_path.glob('*.npy'):
+
+    for file in tqdm(files, desc=f"Loading numpy images from {input_dir}"):
         arrays.append(np.load(str(file)))
     return arrays
 
@@ -198,7 +203,8 @@ def save_landmark_dicts(landmarks_list, output_dir='../data/processed'):
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    for idx, lm in enumerate(landmarks_list):
+
+    for idx, lm in enumerate(tqdm(landmarks_list, desc=f"Saving landmarks to {output_dir}")):
         np.save(output_path / f'landmarks_{idx}.npy', lm)
 
 def load_landmarks(input_dir='../data/processed'):
@@ -209,7 +215,9 @@ def load_landmarks(input_dir='../data/processed'):
     :return: List of dictionaries, one per image, containing facial keypoints or empty dictionary if no face is detected
     """
     input_path = Path(input_dir)
+    files = sorted(input_path.glob("*.npy"))
     landmarks_list = []
-    for file in sorted(input_path.glob('*.npy')):
+
+    for file in tqdm(files, desc=f"Loading landmarks from {input_dir}"):
         landmarks_list.append(np.load(file, allow_pickle=True).item())
     return landmarks_list
