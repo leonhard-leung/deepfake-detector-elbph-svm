@@ -22,10 +22,12 @@ Notes:
 from preprocessing import load_images, preprocess_images, save_as_numpy_images, save_landmark_dicts
 
 def main():
-    raw_images_fake = load_images('../data/raw/fake')
-    raw_images_real = load_images('../data/raw/real')
+    raw_images_fake = load_images(r'D:\archive\images\fake')
+    raw_images_real = load_images(r'D:\archive\images\real')
 
+    print("Applying preprocessing for fake images...")
     processed_images_fake, processed_landmarks_fake = preprocess_images(raw_images_fake)
+    print("Applying preprocessing for real images...")
     processed_images_real, processed_landmarks_real = preprocess_images(raw_images_real)
 
     save_as_numpy_images(processed_images_fake, '../data/processed/fake')

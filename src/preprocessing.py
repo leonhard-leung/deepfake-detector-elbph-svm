@@ -23,6 +23,7 @@ import numpy as np
 import cv2 as cv
 from mtcnn import MTCNN
 from pathlib import Path
+from tqdm import tqdm
 
 # =============== preprocessing techniques ===============
 mtcnn_detector = MTCNN() # global instantiation of mtcnn to avoid multiple instantiations
@@ -128,7 +129,7 @@ def preprocess_images(images):
     cleaned = []
     landmarks = []
 
-    for img in images:
+    for img in tqdm(images, desc="Preprocessing images"):
         img_aligned = _align_face(img)
         img_resized = _resize(img_aligned)
 
