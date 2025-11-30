@@ -23,7 +23,7 @@ from elbph import extract_lbp_features
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_curve, auc
 import joblib
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -41,6 +41,9 @@ def _train(model, X, y):
     model.fit(X, y)
 
     y_pred = model.predict(X)
+    y_score = model.predict_proba(X)[:, 1]
+
+    # metrics
     accuracy = accuracy_score(y, y_pred)
     precision = precision_score(y, y_pred)
     recall = recall_score(y, y_pred)
@@ -52,10 +55,25 @@ def _train(model, X, y):
     print(f"Recall   : {recall:.4f}")
     print(f"F1-score : {f1:.4f}")
 
+    # confusion matrix
     cm = confusion_matrix(y, y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Real', 'Fake'])
     disp.plot(cmap=plt.cm.Blues)
     plt.title("Confusion Matrix (Training)")
+    plt.show()
+
+    # ROC curve
+    fpr, tpr, _ = roc_curve(y, y_score)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure()
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
+    plt.plot([0, 1], [0, 1], "k--")
+    plt.title("ROC Curve (Training)")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend()
+    plt.grid(True)
     plt.show()
 
 def _validate(model, X, y):
@@ -68,6 +86,9 @@ def _validate(model, X, y):
     :return: None
     """
     y_pred = model.predict(X)
+    y_score = model.predict_proba(X)[:, 1]
+
+    # metrics
     accuracy = accuracy_score(y, y_pred)
     precision = precision_score(y, y_pred)
     recall = recall_score(y, y_pred)
@@ -79,10 +100,25 @@ def _validate(model, X, y):
     print(f"Recall   : {recall:.4f}")
     print(f"F1-score : {f1:.4f}")
 
+    # confusion matrix
     cm = confusion_matrix(y, y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Real', 'Fake'])
     disp.plot(cmap=plt.cm.Blues)
     plt.title("Confusion Matrix (Validation)")
+    plt.show()
+
+    # ROC curve
+    fpr, tpr, _ = roc_curve(y, y_score)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure()
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
+    plt.plot([0, 1], [0, 1], "k--")
+    plt.title("ROC Curve (Validation)")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend()
+    plt.grid(True)
     plt.show()
 
 def _evaluate(model, X, y):
@@ -95,6 +131,9 @@ def _evaluate(model, X, y):
     :return: None
     """
     y_pred = model.predict(X)
+    y_score = model.predict_proba(X)[:, 1]
+
+    # metrics
     accuracy = accuracy_score(y, y_pred)
     precision = precision_score(y, y_pred)
     recall = recall_score(y, y_pred)
@@ -106,10 +145,25 @@ def _evaluate(model, X, y):
     print(f"Recall   : {recall:.4f}")
     print(f"F1-score : {f1:.4f}")
 
+    # confusion matrix
     cm = confusion_matrix(y, y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Real', 'Fake'])
     disp.plot(cmap=plt.cm.Blues)
     plt.title("Confusion Matrix (Evaluation)")
+    plt.show()
+
+    # ROC curve
+    fpr, tpr, _ = roc_curve(y, y_score)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure()
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
+    plt.plot([0, 1], [0, 1], "k--")
+    plt.title("ROC Curve (Evaluation)")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend()
+    plt.grid(True)
     plt.show()
 
 def _save_model(model, output_dir='../model'):
