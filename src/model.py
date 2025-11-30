@@ -178,6 +178,7 @@ def main():
     X_eval_features = pca.transform(X_eval_features)
 
     # save PCA model for inference
+    os.makedirs("../model", exist_ok=True)
     joblib.dump(pca, "../model/pca_model.joblib")
     print("PCA model saved to '../model/pca_model.joblib'")
 
